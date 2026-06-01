@@ -1,0 +1,63 @@
+{
+  "software": "MineCatalog",
+  "tipo_documento": "documentacion_tecnica",
+  "version": "1.0",
+  "modulo": "errores_frecuentes",
+  "contenido": [
+    {
+      "id": "ERR-DB-001",
+      "categoria": "configuracion_servicios",
+      "titulo": "No se puede conectar con la base de datos",
+      "mensaje_usuario": "Error de conexión con el servidor de datos.",
+      "causas_posibles": [
+        "Servidor de base de datos apagado",
+        "Parámetros de conexión incorrectos",
+        "Puerto bloqueado",
+        "Credenciales inválidas",
+        "Problemas de red interna"
+      ],
+      "solucion": [
+        "Verificar que el servidor de base de datos esté activo",
+        "Validar host, puerto, nombre de base de datos, usuario y contraseña",
+        "Confirmar conectividad de red",
+        "Revisar si el puerto de conexión está habilitado",
+        "Escalar al administrador de base de datos si el problema persiste"
+      ],
+      "nivel_soporte": "Nivel 2",
+      "palabras_clave": [
+        "base de datos",
+        "conexión",
+        "servidor",
+        "puerto",
+        "PostgreSQL",
+        "credenciales"
+      ]
+    },
+    {
+      "id": "ERR-CAT-001",
+      "categoria": "catalogacion_materiales",
+      "titulo": "Código de material duplicado",
+      "mensaje_usuario": "Ya existe un material registrado con este código.",
+      "causas_posibles": [
+        "Registro manual con código repetido",
+        "Error en carga masiva",
+        "Fallo en la generación automática de códigos",
+        "Importación de datos históricos sin validación previa"
+      ],
+      "solucion": [
+        "Buscar el código en el catálogo",
+        "Verificar si el material ya existe",
+        "Actualizar el registro existente en lugar de crear uno nuevo",
+        "Revisar la configuración de generación automática de códigos"
+      ],
+      "nivel_soporte": "Nivel 1",
+      "palabras_clave": [
+        "código duplicado",
+        "material repetido",
+        "catálogo",
+        "carga masiva",
+        "registro"
+      ]
+    }
+  ]
+}

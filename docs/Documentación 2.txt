@@ -1,0 +1,86 @@
+3.2 Error: no se puede conectar con la base de datos
+Mensaje mostrado
+
+Error de conexión con el servidor de datos.
+
+Causas posibles
+Servidor de base de datos apagado.
+Parámetros de conexión incorrectos.
+Puerto bloqueado.
+Credenciales inválidas.
+Problemas de red interna.
+Solución
+
+Revisar la conexión de red, validar los parámetros de configuración y confirmar que el servicio de base de datos esté activo.
+
+3.3 Error: código de material duplicado
+Mensaje mostrado
+
+Ya existe un material registrado con este código.
+
+Causas posibles
+Registro manual con código repetido.
+Error en carga masiva.
+Fallo en la generación automática de códigos.
+Importación de datos históricos sin validación previa.
+Solución
+
+Buscar el código en el catálogo. Si el material ya existe, actualizar el registro existente en lugar de crear uno nuevo.
+
+3.4 Error: campos obligatorios incompletos
+Mensaje mostrado
+
+Existen campos requeridos sin completar.
+
+Causas posibles
+No se ingresó el tipo de material.
+Falta la fecha de ingreso.
+No se asignó responsable.
+Falta información de origen.
+No se completó la composición principal.
+Solución
+
+Completar todos los campos marcados con asterisco antes de guardar el registro.
+
+3.5 Error: archivo no permitido
+Mensaje mostrado
+
+El formato del archivo no es compatible.
+
+Causas posibles
+Archivo con extensión no autorizada.
+Archivo corrupto.
+Tamaño superior al permitido.
+Nombre de archivo con caracteres inválidos.
+Solución
+
+Verificar que el archivo esté en un formato permitido y que no exceda el tamaño máximo configurado.
+
+3.6 Error: carga masiva fallida
+Mensaje mostrado
+
+No se pudo procesar el archivo de importación.
+
+Causas posibles
+Plantilla incorrecta.
+Columnas faltantes.
+Datos incompatibles.
+Códigos repetidos.
+Formato de fecha inválido.
+Solución
+
+Descargar la plantilla oficial del sistema, completar los datos respetando el formato requerido y volver a cargar el archivo.
+
+3.7 Error: permiso denegado
+Mensaje mostrado
+
+No tiene permisos para realizar esta acción.
+
+Causas posibles
+El usuario no tiene el rol adecuado.
+El permiso fue revocado.
+La sesión expiró.
+Se intenta acceder a un módulo restringido.
+Solución
+
+Solicitar al administrador la revisión de permisos. También se recomienda cerrar sesión e ingresar nuevamente.
