@@ -2,9 +2,9 @@ import os
 import json
 import urllib.request
 
-# FIX: la URL /webhook-test/ de n8n solo responde mientras el workflow está
+# la URL /webhook-test/ de n8n solo responde mientras el workflow está
 # "escuchando" (botón "Test workflow" / "Listen for test event"). Para algo
-# estable usá la URL de producción /webhook/preguntar. La dejamos configurable.
+# estable se usa la URL de producción /webhook/preguntar
 URL = os.getenv(
     "N8N_WEBHOOK_URL",
     "https://carolinaruiz92.app.n8n.cloud/webhook-test/preguntar",

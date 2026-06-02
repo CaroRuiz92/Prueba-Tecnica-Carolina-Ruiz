@@ -1,9 +1,6 @@
 """
 Se leen todos los archivos de /docs (txt, md, pdf, json),
 limpia el texto, lo divide en chunks y los indexa en ChromaDB.
-
-OPCIÓN B (gratis): embeddings locales (all-MiniLM-L6-v2 vía ONNX, sin costo de API).
-Se controla con la variable de entorno EMBEDDING_BACKEND = local | openai
 """
 
 # Librerias necesarias
@@ -57,9 +54,7 @@ COLLECTION_NAME = "docs"
 
 def make_embedding_function():
     """
-    Devuelve la función de embeddings según EMBEDDING_BACKEND.
-    IMPORTANTE: ingestion.py y main.py DEBEN usar el mismo backend, o las
-    dimensiones de los vectores no coincidirán al consultar.
+    Devuelve la función de embeddings según EMBEDDING_BACKEND
     """
     if EMBEDDING_BACKEND == "openai":
         if not OPENAI_API_KEY:
@@ -91,9 +86,6 @@ def read_txt(path: Path) -> str:
 def _flatten_json(obj, lines: list) -> None:
     """
     Aplana recursivamente cualquier estructura JSON a líneas de texto.
-    FIX: la versión anterior filtraba por (str, int, float) en la rama dict,
-    lo que descartaba listas y diccionarios anidados (es decir, casi todo
-    el contenido útil de un JSON como Documentación 4.json).
     """
     if isinstance(obj, dict):
         for k, v in obj.items():
@@ -157,7 +149,7 @@ def clean_text(text: str) -> str:
     if not text:
         return ""
 
-    # FIX: eliminar SOLO caracteres de control (mantiene \t \n \r y TODO el
+    # Se eliminan SOLO caracteres de control (mantiene \t \n \r y TODO el
     # Unicode imprimible: viñetas, comillas tipográficas, rayas, etc.).
     text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", " ", text)
 
@@ -239,7 +231,7 @@ def chunk_id_for(file_path: Path, index: int, chunk: str) -> str:
     """
     ID estable por contenido: extensión + índice + hash del contenido.
     Evita colisiones entre archivos con el mismo nombre y permite reindexar
-    al editar un documento (cosa que el ID basado solo en el índice no hacía).
+    al editar un documento.
     """
     h = hashlib.sha256(chunk.encode("utf-8")).hexdigest()[:12]
     ext = file_path.suffix.lower().lstrip(".") or "noext"

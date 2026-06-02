@@ -1,9 +1,6 @@
 """
 API REST para el Asistente de Soporte Técnico.
-Recibe consultas, busca en ChromaDB el contexto relevante y
-usa un LLM para generar una respuesta.
-
-OPCIÓN B (gratis):
+- Recibe consultas, busca en ChromaDB el contexto relevante y usa un LLM para generar una respuesta.
 - Embeddings locales (EMBEDDING_BACKEND=local), sin costo de API.
 - Generación de respuestas vía un endpoint compatible con OpenAI (por defecto Groq,
   que tiene capa gratuita). Se configura con LLM_BASE_URL / LLM_API_KEY / LLM_MODEL.
@@ -31,22 +28,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 VECTORSTORE_DIR = Path(os.getenv("VECTORSTORE_DIR", str(BASE_DIR / "vectors")))
 COLLECTION_NAME = "docs"
 
-# Backend de embeddings (DEBE ser el mismo que en ingestion.py)
+# Backend de embeddings
 EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "local").lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-# LLM compatible con la API de OpenAI.
-# Por defecto: Groq (gratis, sin tarjeta). Para fully-local con Ollama, usar:
-#   LLM_BASE_URL=http://localhost:11434/v1  LLM_API_KEY=ollama  LLM_MODEL=llama3.2
+# LLM compatible con la API de OpenAI
+# Por defecto: Groq (gratis)
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
-# Umbral de relevancia (distancia coseno, rango 0-2; menor = más parecido).
-# OJO: el valor "bueno" depende del modelo de embeddings; recalibrar si cambiás de backend.
+# Umbral de relevancia (menor = más parecido).
 RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "1.5"))
 
-NO_INFO_MSG = "Lo siento, no tengo información en mi documentación para responder esa pregunta."
+NO_INFO_MSG = "Lo lamento, no tengo información en mi documentación para responder esa pregunta."
 
 if not LLM_API_KEY:
     logger.warning("LLM_API_KEY no encontrada. La generación de respuestas fallará.")
