@@ -1,0 +1,17 @@
+# API REST
+fastapi
+uvicorn[standard]
+pydantic
+
+# Base de datos vectorial + embeddings locales (all-MiniLM-L6-v2 vía ONNX)
+chromadb
+onnxruntime
+
+# Cliente LLM (compatible con Groq y OpenAI)
+openai
+
+# Lectura de PDFs
+pypdf
+
+# Variables de entorno
+python-dotenv
