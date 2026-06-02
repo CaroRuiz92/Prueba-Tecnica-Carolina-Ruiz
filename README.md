@@ -109,25 +109,6 @@ CHUNK_SIZE=300
 CHUNK_OVERLAP=60
 ```
 
-### Nota sobre el no uso de OpenAI
-
-La consigna admite "un LLM local **o** la capa gratuita de la API OpenAI". Se utilizó
-**Groq**, que expone una API **compatible con OpenAI** (mismo SDK; solo cambian
-`base_url` y el modelo). El sistema está **desacoplado del proveedor**: para usar la
-API de OpenAI directamente, basta con cambiar estas variables en el `.env`, **sin
-modificar el código**:
-
-```env
-EMBEDDING_BACKEND=openai
-OPENAI_API_KEY=sk_tu_clave_de_openai
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=sk_tu_clave_de_openai
-LLM_MODEL=gpt-4o-mini
-```
-
-> Al cambiar el backend de embeddings (`local` ↔ `openai`) cambian las dimensiones de
-> los vectores: hay que borrar `vectorstore/` y reindexar.
-
 ---
 
 ## Levantamiento
