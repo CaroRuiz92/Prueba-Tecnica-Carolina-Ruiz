@@ -1,0 +1,106 @@
+{
+  "name": "Asistente de Soporte - RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "preguntar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        -16
+      ],
+      "id": "7e4013a4-6b66-436c-a5d6-c8ec6c8ce55c",
+      "webhookId": "ecc32cac-5805-4ae2-8611-991b27b001f5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jailhouse-trapper-desolate.ngrok-free.dev/ask",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "ngrok-skip-browser-warning",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "pregunta",
+              "value": "={{ $json.body.pregunta }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        128,
+        -16
+      ],
+      "id": "9d9ec8e9-f2b6-4dae-b85f-697a16952a83"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        384,
+        -16
+      ],
+      "id": "78eb101d-1be3-496f-aae3-6c9a6206efa9"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "30b863b3-ca5b-45ec-ac88-c4cde4967a50",
+  "meta": {
+    "instanceId": "9d53517d0042ccd2d43c00e4da67af1960716740524fd192fb936b2b5f5d229a"
+  },
+  "id": "8XzHPXjKqVgPIl1Y",
+  "tags": []
+}

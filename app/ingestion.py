@@ -1,12 +1,16 @@
 """
 Se leen todos los archivos de /docs (txt, md, pdf, json),
 limpia el texto, lo divide en chunks y los indexa en ChromaDB.
+
+OPCIÓN B (gratis): embeddings locales (all-MiniLM-L6-v2 vía ONNX, sin costo de API).
+Se controla con la variable de entorno EMBEDDING_BACKEND = local | openai
 """
 
 # Librerias necesarias
 import os
 import re
 import json
+import hashlib
 import logging
 from pathlib import Path
 from typing import Optional
@@ -44,9 +48,30 @@ VECTORSTORE_DIR = Path(os.getenv("VECTORSTORE_DIR", str(BASE_DIR / "vectors")))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "300"))  # caracteres por chunk
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))  # solapamiento
 
-# OpenAI para los embeddings
+# Backend de embeddings: "local" (gratis) u "openai".
+# Para la Opción B usamos "local": no consume cuota de OpenAI.
+EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "local").lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 COLLECTION_NAME = "docs"
+
+
+def make_embedding_function():
+    """
+    Devuelve la función de embeddings según EMBEDDING_BACKEND.
+    IMPORTANTE: ingestion.py y main.py DEBEN usar el mismo backend, o las
+    dimensiones de los vectores no coincidirán al consultar.
+    """
+    if EMBEDDING_BACKEND == "openai":
+        if not OPENAI_API_KEY:
+            raise RuntimeError("EMBEDDING_BACKEND=openai pero no hay OPENAI_API_KEY.")
+        logger.info("Embeddings: OpenAI (text-embedding-3-small)")
+        return embedding_functions.OpenAIEmbeddingFunction(
+            api_key=OPENAI_API_KEY,
+            model_name="text-embedding-3-small",
+        )
+    # Local (gratis): all-MiniLM-L6-v2 vía ONNX, no requiere torch ni API key.
+    logger.info("Embeddings: locales y gratuitos (all-MiniLM-L6-v2, ONNX)")
+    return embedding_functions.DefaultEmbeddingFunction()
 
 
 
@@ -63,31 +88,38 @@ def read_txt(path: Path) -> str:
     return ""
 
 
+def _flatten_json(obj, lines: list) -> None:
+    """
+    Aplana recursivamente cualquier estructura JSON a líneas de texto.
+    FIX: la versión anterior filtraba por (str, int, float) en la rama dict,
+    lo que descartaba listas y diccionarios anidados (es decir, casi todo
+    el contenido útil de un JSON como Documentación 4.json).
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(v, (dict, list)):
+                lines.append(f"{k}:")
+                _flatten_json(v, lines)
+            else:
+                lines.append(f"{k}: {v}")
+    elif isinstance(obj, list):
+        for item in obj:
+            _flatten_json(item, lines)
+    else:
+        lines.append(str(obj))
+
+
 def read_json(path: Path) -> str:
-    """Lee archivos .json y convierte su contenido a texto plano."""
+    """Lee archivos .json y convierte TODO su contenido (incl. anidado) a texto plano."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         logger.warning(f"JSON inválido en {path}: {e}")
         return ""
 
-    if isinstance(data, str):
-        return data
-
-    if isinstance(data, list):
-        parts = []
-        for item in data:
-            if isinstance(item, str):
-                parts.append(item)
-            elif isinstance(item, dict):
-                parts.append(" ".join(str(v) for v in item.values()))
-        return "\n\n".join(parts)
-
-    if isinstance(data, dict):
-        parts = [f"{k}: {v}" for k, v in data.items() if isinstance(v, (str, int, float))]
-        return "\n".join(parts)
-
-    return str(data)
+    lines: list[str] = []
+    _flatten_json(data, lines)
+    return "\n".join(lines)
 
 
 def read_pdf(path: Path) -> str:
@@ -125,8 +157,9 @@ def clean_text(text: str) -> str:
     if not text:
         return ""
 
-    # Eliminar caracteres de control raros (mantiene \n y \t)
-    text = re.sub(r"[^\x09\x0A\x0D\x20-\x7E\x80-\xFF]", " ", text)
+    # FIX: eliminar SOLO caracteres de control (mantiene \t \n \r y TODO el
+    # Unicode imprimible: viñetas, comillas tipográficas, rayas, etc.).
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", " ", text)
 
     # Colapsar espacios en blanco dentro de una línea
     text = re.sub(r"[ \t]+", " ", text)
@@ -192,20 +225,7 @@ def get_collection(vectorstore_dir: Path, collection_name: str):
     vectorstore_dir.mkdir(parents=True, exist_ok=True)
 
     client = chromadb.PersistentClient(path=str(vectorstore_dir))
-
-    if OPENAI_API_KEY:
-        logger.info("Usando embeddings de OpenAI (text-embedding-3-small)")
-        ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=OPENAI_API_KEY,
-            model_name="text-embedding-3-small",
-        )
-    else:
-        logger.warning(
-            "OPENAI_API_KEY no encontrada. Usando embedding local (all-MiniLM-L6-v2)."
-        )
-        ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
+    ef = make_embedding_function()
 
     collection = client.get_or_create_collection(
         name=collection_name,
@@ -215,27 +235,25 @@ def get_collection(vectorstore_dir: Path, collection_name: str):
     return collection
 
 
+def chunk_id_for(file_path: Path, index: int, chunk: str) -> str:
+    """
+    ID estable por contenido: extensión + índice + hash del contenido.
+    Evita colisiones entre archivos con el mismo nombre y permite reindexar
+    al editar un documento (cosa que el ID basado solo en el índice no hacía).
+    """
+    h = hashlib.sha256(chunk.encode("utf-8")).hexdigest()[:12]
+    ext = file_path.suffix.lower().lstrip(".") or "noext"
+    return f"{file_path.stem}__{ext}__{index:04d}__{h}"
+
+
 def index_documents(docs_dir: Path, vectorstore_dir: Path) -> int:
-    """Pipeline completo: lee → limpia → chunkea → indexa sin duplicados."""
+    """Pipeline completo: lee -> limpia -> chunkea -> indexa de forma idempotente."""
     if not docs_dir.exists():
         raise FileNotFoundError(f"La carpeta de documentos no existe: {docs_dir}")
 
     collection = get_collection(vectorstore_dir, COLLECTION_NAME)
 
-    # EVITAR LA TRAMPA DEL LÍMITE DE 100: Paginamos para obtener TODOS los IDs existentes
-    existing = set()
-    offset = 0
-    batch_limit = 100
-    while True:
-        existing_batch = collection.get(include=[], limit=batch_limit, offset=offset)
-        if not existing_batch["ids"]:
-            break
-        existing.update(existing_batch["ids"])
-        offset += batch_limit
-
-    logger.info(f"Chunks ya existentes en la base de datos vectorial: {len(existing)}")
-
-    total_chunks = 0
+    total_new = 0
     files = [f for f in docs_dir.iterdir() if f.is_file()]
 
     if not files:
@@ -247,35 +265,61 @@ def index_documents(docs_dir: Path, vectorstore_dir: Path) -> int:
 
         raw_text = read_file(file_path)
         if not raw_text:
-            logger.info("  → Sin contenido extraíble, se omite.")
+            logger.info("  -> Sin contenido extraíble, se omite.")
             continue
 
         clean = clean_text(raw_text)
         if not clean:
-            logger.info("  → Sin texto después de limpiar, se omite.")
+            logger.info("  -> Sin texto después de limpiar, se omite.")
             continue
 
         chunks = split_into_chunks(clean)
-        logger.info(f"  → {len(chunks)} chunks generados")
+        logger.info(f"  -> {len(chunks)} chunks generados")
 
-        new_documents = []
-        new_ids = []
-        new_metadatas = []
+        # Construir el conjunto de chunks "deseados" para este archivo
+        ids: list[str] = []
+        documents: list[str] = []
+        metadatas: list[dict] = []
+        seen: set[str] = set()
 
         for i, chunk in enumerate(chunks):
-            chunk_id = f"{file_path.stem}_chunk_{i}"
-            if chunk_id in existing:
+            cid = chunk_id_for(file_path, i, chunk)
+            if cid in seen:  # chunk idéntico repetido en el mismo archivo
                 continue
-            new_documents.append(chunk)
-            new_ids.append(chunk_id)
-            new_metadatas.append({
+            seen.add(cid)
+            ids.append(cid)
+            documents.append(chunk)
+            metadatas.append({
                 "source": file_path.name,
                 "chunk_index": i,
                 "total_chunks": len(chunks),
             })
 
+        # Qué hay ya indexado para ESTE archivo
+        try:
+            existing_for_source = collection.get(where={"source": file_path.name})
+            existing_ids = set(existing_for_source.get("ids", []))
+        except Exception as e:
+            logger.warning(f"  -> No se pudieron leer chunks existentes de {file_path.name}: {e}")
+            existing_ids = set()
+
+        # Limpieza de huérfanos: chunks viejos del archivo que ya no existen
+        orphans = existing_ids - set(ids)
+        if orphans:
+            collection.delete(ids=list(orphans))
+            logger.info(f"  -> {len(orphans)} chunks obsoletos eliminados")
+
+        # Agregar solo los chunks nuevos
+        new_documents, new_ids, new_metadatas = [], [], []
+        for cid, doc, meta in zip(ids, documents, metadatas):
+            if cid in existing_ids:
+                continue
+            new_ids.append(cid)
+            new_documents.append(doc)
+            new_metadatas.append(meta)
+
         if not new_documents:
-            logger.info("  → Todos los chunks ya estaban indexados.")
+            logger.info("  -> Sin cambios, todos los chunks ya estaban indexados.")
             continue
 
         # Indexar en lotes controlados
@@ -287,16 +331,17 @@ def index_documents(docs_dir: Path, vectorstore_dir: Path) -> int:
                 metadatas=new_metadatas[batch_start:batch_start + batch_size],
             )
 
-        total_chunks += len(new_documents)
-        logger.info(f"  → {len(new_documents)} chunks nuevos indexados")
+        total_new += len(new_documents)
+        logger.info(f"  -> {len(new_documents)} chunks nuevos indexados")
 
-    logger.info(f"Indexación completa. Total de chunks nuevos: {total_chunks}")
-    return total_chunks
+    logger.info(f"Indexación completa. Total de chunks nuevos: {total_new}")
+    return total_new
 
 
 if __name__ == "__main__":
     logger.info(f"Carpeta de documentos detectada: {DOCS_DIR.resolve()}")
     logger.info(f"Vectorstore detectado: {VECTORSTORE_DIR.resolve()}")
+    logger.info(f"Backend de embeddings: {EMBEDDING_BACKEND}")
     logger.info(f"Configuración - Chunk size: {CHUNK_SIZE} | Overlap: {CHUNK_OVERLAP}")
 
     try:
